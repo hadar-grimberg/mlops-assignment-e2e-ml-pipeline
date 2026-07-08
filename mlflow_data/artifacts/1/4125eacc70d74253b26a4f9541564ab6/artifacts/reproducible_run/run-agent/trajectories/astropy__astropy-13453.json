@@ -1,0 +1,22 @@
+{
+  "instance_id": "astropy__astropy-13453",
+  "model": "claude-sonnet-5",
+  "split": "lite",
+  "subset": "test",
+  "total_cost": 0.6498,
+  "history": [
+    {
+      "action": "search_grep",
+      "thought": "Locating relevant code for astropy__astropy-13453."
+    },
+    {
+      "action": "run_tests",
+      "thought": "Iterating on fix attempt 1 for astropy__astropy-13453."
+    },
+    {
+      "action": "edit_patch",
+      "thought": "Applying patch for astropy__astropy-13453."
+    }
+  ],
+  "status": "patch_generated"
+}

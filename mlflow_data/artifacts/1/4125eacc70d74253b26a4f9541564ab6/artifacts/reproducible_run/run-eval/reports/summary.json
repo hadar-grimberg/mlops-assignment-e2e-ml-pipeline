@@ -1,0 +1,9 @@
+{
+  "resolved_count": 3,
+  "total_count": 5,
+  "resolved_rate": 60.0,
+  "unresolved_instances": [
+    "astropy__astropy-13579",
+    "astropy__astropy-14096"
+  ]
+}

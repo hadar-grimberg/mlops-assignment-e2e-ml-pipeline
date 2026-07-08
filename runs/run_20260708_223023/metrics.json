@@ -1,0 +1,12 @@
+{
+  "resolved_count": 3,
+  "total_count": 5,
+  "resolved_rate": 60.0,
+  "unresolved_instances": [
+    "astropy__astropy-13579",
+    "astropy__astropy-14096"
+  ],
+  "total_cost": 3.0376,
+  "avg_cost_per_instance": 0.6075,
+  "avg_steps_per_instance": 2.4
+}

@@ -44,7 +44,32 @@ def summarize_and_log_task(**context: Context):
     if summary_path.exists():
         with open(summary_path, "r") as f:
             metrics = json.load(f)
-            
+
+    # 1b. Cost & trajectory metrics, aggregated and per-instance
+    unresolved_instances = set(metrics.get("unresolved_instances", []))
+    trajectories_dir = container_run_dir / "run-agent" / "trajectories"
+    per_instance_metrics = {}
+    total_cost = 0.0
+    total_steps = 0
+    instance_count = 0
+    if trajectories_dir.exists():
+        for traj_file in sorted(trajectories_dir.glob("*.json")):
+            with open(traj_file, "r") as f:
+                trajectory = json.load(f)
+            instance_id = trajectory.get("instance_id", traj_file.stem)
+            cost = trajectory.get("total_cost", 0.0)
+            steps = len(trajectory.get("history", []))
+            total_cost += cost
+            total_steps += steps
+            instance_count += 1
+            per_instance_metrics[f"resolved.{instance_id}"] = 0.0 if instance_id in unresolved_instances else 1.0
+            per_instance_metrics[f"cost.{instance_id}"] = cost
+            per_instance_metrics[f"steps.{instance_id}"] = steps
+
+    metrics["total_cost"] = round(total_cost, 4)
+    metrics["avg_cost_per_instance"] = round(total_cost / instance_count, 4) if instance_count else 0.0
+    metrics["avg_steps_per_instance"] = round(total_steps / instance_count, 4) if instance_count else 0.0
+
     with open(container_run_dir / "metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
 
@@ -98,6 +123,8 @@ def summarize_and_log_task(**context: Context):
             mlflow.log_params(run_config)
             numeric_metrics = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
             mlflow.log_metrics(numeric_metrics)
+            if per_instance_metrics:
+                mlflow.log_metrics(per_instance_metrics)
             mlflow.log_param("remote_storage_uri", s3_uri)
             mlflow.log_artifacts(str(container_run_dir), artifact_path="reproducible_run")
             print("Successfully recorded execution trace matrix into MLflow Registry Workspace.")
@@ -179,6 +206,7 @@ with DAG(
             "--workers {{ params.workers }} "
             "--model {{ params.model }} "
             "--task-slice {{ params.task_slice }} "
+            "--cost-limit {{ params.cost_limit }} "
             "--output-dir /opt/airflow/current_run/run-agent"
         )
     )

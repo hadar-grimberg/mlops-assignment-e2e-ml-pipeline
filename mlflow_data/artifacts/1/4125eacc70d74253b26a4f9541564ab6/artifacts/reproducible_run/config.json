@@ -1,0 +1,10 @@
+{
+  "run_id": "run_20260708_223023",
+  "split": "lite",
+  "subset": "test",
+  "workers": 4,
+  "model": "claude-sonnet-5",
+  "task_slice": "3:8",
+  "cost_limit": 10.0,
+  "timestamp": "2026-07-08T22:30:23.162824+00:00"
+}

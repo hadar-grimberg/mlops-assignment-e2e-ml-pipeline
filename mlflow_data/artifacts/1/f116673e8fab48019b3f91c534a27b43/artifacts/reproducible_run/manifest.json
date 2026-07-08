@@ -1,0 +1,12 @@
+{
+  "run_id": "run_20260708_221345",
+  "remote_artifact_uri": "local-only",
+  "artifacts": {
+    "config": "config.json",
+    "predictions": "run-agent/preds.json",
+    "trajectories": "run-agent/trajectories/",
+    "eval_logs": "run-eval/logs/",
+    "eval_reports": "run-eval/reports/",
+    "metrics": "metrics.json"
+  }
+}

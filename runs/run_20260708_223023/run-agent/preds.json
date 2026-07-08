@@ -1,0 +1,7 @@
+{
+  "astropy__astropy-13398": "diff --git a/astropy/mock_fix.py b/astropy/mock_fix.py\n--- a/astropy/mock_fix.py\n+++ b/astropy/mock_fix.py\n@@ -1,1 +1,2 @@\n-    pass\n+    # mini-swe-agent[claude-sonnet-5] patch for astropy__astropy-13398\n+    return True\n",
+  "astropy__astropy-13453": "diff --git a/astropy/mock_fix.py b/astropy/mock_fix.py\n--- a/astropy/mock_fix.py\n+++ b/astropy/mock_fix.py\n@@ -1,1 +1,2 @@\n-    pass\n+    # mini-swe-agent[claude-sonnet-5] patch for astropy__astropy-13453\n+    return True\n",
+  "astropy__astropy-13579": "diff --git a/astropy/mock_fix.py b/astropy/mock_fix.py\n--- a/astropy/mock_fix.py\n+++ b/astropy/mock_fix.py\n@@ -1,1 +1,2 @@\n-    pass\n+    # mini-swe-agent[claude-sonnet-5] patch for astropy__astropy-13579\n+    return True\n",
+  "astropy__astropy-14096": "diff --git a/astropy/mock_fix.py b/astropy/mock_fix.py\n--- a/astropy/mock_fix.py\n+++ b/astropy/mock_fix.py\n@@ -1,1 +1,2 @@\n-    pass\n+    # mini-swe-agent[claude-sonnet-5] patch for astropy__astropy-14096\n+    return True\n",
+  "astropy__astropy-14182": "diff --git a/astropy/mock_fix.py b/astropy/mock_fix.py\n--- a/astropy/mock_fix.py\n+++ b/astropy/mock_fix.py\n@@ -1,1 +1,2 @@\n-    pass\n+    # mini-swe-agent[claude-sonnet-5] patch for astropy__astropy-14182\n+    return True\n"
+}
