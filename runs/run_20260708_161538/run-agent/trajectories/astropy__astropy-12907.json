@@ -1,0 +1,16 @@
+{
+  "instance_id": "astropy__astropy-12907",
+  "model": "gpt-4o",
+  "total_cost": 0.42,
+  "history": [
+    {
+      "action": "search_grep",
+      "thought": "Locating spectral configuration anomalies inside codebase."
+    },
+    {
+      "action": "edit_patch",
+      "thought": "Applying target updates to validate evaluation."
+    }
+  ],
+  "status": "patch_generated"
+}

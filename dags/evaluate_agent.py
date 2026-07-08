@@ -9,6 +9,8 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.models.param import Param
 from airflow.utils.context import Context
+from docker.types import Mount
+
 
 # Core path parameters mapped on the host machine
 HOST_PROJECT_ROOT = Path(os.getenv("HOST_PROJECT_ROOT", "/home/ubuntu/mlops-assignment-e2e-ml-pipeline"))
@@ -26,58 +28,15 @@ default_args = {
     "retry_delay": timedelta(minutes=2),     # Grace period before spin retry
 }
 
-# --- Phase 1/2 Refactored Storage Architecture Setup Helpers ---
-
-def build_run_config(params: dict) -> dict:
-    run_id = params.get("run_id") or f"run_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-    return {
-        "run_id": run_id,
-        "split": params["split"],
-        "subset": params["subset"],
-        "workers": int(params["workers"]),
-        "model": params["model"],
-        "task_slice": params["task_slice"],
-        "cost_limit": float(params["cost_limit"]),
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-
-def prepare_run_dir(run_config: dict) -> tuple[Path, Path]:
-    run_id = run_config["run_id"]
-    host_run_dir = HOST_RUNS_DIR / run_id
-    container_run_dir = CONTAINER_RUNS_DIR / run_id
-
-    # Create directory using the running Airflow instance workspace paths
-    container_run_dir.mkdir(parents=True, exist_ok=True)
-    (container_run_dir / "run-agent" / "trajectories").mkdir(parents=True, exist_ok=True)
-    (container_run_dir / "run-eval" / "logs").mkdir(parents=True, exist_ok=True)
-    (container_run_dir / "run-eval" / "reports").mkdir(parents=True, exist_ok=True)
-
-    with open(container_run_dir / "config.json", "w") as f:
-        json.dump(run_config, f, indent=2)
-
-    return host_run_dir, container_run_dir
-
 # --- Python Tasks ---
-
-def prepare_run_task(**context: Context) -> dict:
-    """Step 1: Parse and create standard workspace directory hooks."""
-    params = context["params"]
-    run_config = build_run_config(params)
-    host_run_dir, container_run_dir = prepare_run_dir(run_config)
-    
-    return {
-        "run_config": run_config,
-        "host_run_dir": str(host_run_dir),
-        "container_run_dir": str(container_run_dir)
-    }
 
 def summarize_and_log_task(**context: Context):
     """Step 4: Collect, organize structural manifest files and transfer outputs to remote S3 storage."""
     ti = context["ti"]
-    prep_data = ti.xcom_pull(task_ids="prepare_run")
-    run_config = prep_data["run_config"]
-    container_run_dir = Path(prep_data["container_run_dir"])
-    run_id = run_config["run_id"]
+    run_id = ti.xcom_pull(task_ids="prepare_run")
+    container_run_dir = CONTAINER_RUNS_DIR / run_id
+    with open(container_run_dir / "config.json", "r") as f:
+        run_config = json.load(f)
 
     # 1. Metrics evaluation parse check
     summary_path = container_run_dir / "run-eval" / "reports" / "summary.json"
@@ -137,7 +96,8 @@ def summarize_and_log_task(**context: Context):
 
         with mlflow.start_run(run_name=run_id):
             mlflow.log_params(run_config)
-            mlflow.log_metrics(metrics)
+            numeric_metrics = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
+            mlflow.log_metrics(numeric_metrics)
             mlflow.log_param("remote_storage_uri", s3_uri)
             mlflow.log_artifacts(str(container_run_dir), artifact_path="reproducible_run")
             print("Successfully recorded execution trace matrix into MLflow Registry Workspace.")
@@ -150,7 +110,7 @@ with DAG(
     dag_id="evaluate_agent_production",
     default_args=default_args,
     description="Phase 3 Production Polish: Isolated Docker Pipelines for Coding Agents",
-    schedule_interval=None,
+    schedule=None,
     catchup=False,
     params={
         "split": Param("lite", type="string"),
@@ -163,9 +123,32 @@ with DAG(
     }
 ) as dag:
 
-    prepare_run = PythonOperator(
+    # Step 1 Polished: Isolated Container creation of the shared run workspace
+    prepare_run = DockerOperator(
         task_id="prepare_run",
-        python_callable=prepare_run_task,
+        image="mini-swe-agent-pipeline:latest",
+        api_version="auto",
+        auto_remove='success',
+        network_mode="host",
+        do_xcom_push=True,
+        xcom_all=False,  # only the last stdout line (the run_id) is pushed to XCom
+        mounts=[
+            Mount(
+                source=str(HOST_RUNS_DIR),
+                target="/opt/airflow/runs",
+                type="bind",
+            )
+        ],
+        command=(
+            "python scripts/prepare_run.py "
+            "--run-id '{{ params.run_id }}' "
+            "--split {{ params.split }} "
+            "--subset {{ params.subset }} "
+            "--workers {{ params.workers }} "
+            "--model {{ params.model }} "
+            "--task-slice {{ params.task_slice }} "
+            "--cost-limit {{ params.cost_limit }}"
+        )
     )
 
     # Step 2 Polished: Isolated Container execution of Agent Loop via DockerOperator
@@ -174,19 +157,23 @@ with DAG(
         task_id="run_agent",
         image="mini-swe-agent-pipeline:latest", # Built using provided assignment Dockerfile
         api_version="auto",
-        auto_remove=True,
+        auto_remove='success',
         network_mode="host",                     # Allows API communication and networking loops
-        timeout=timedelta(hours=2),              # Enforces an execution safety limit cutoff budget
+        execution_timeout=timedelta(hours=2),    # Enforces an execution safety limit cutoff budget
         environment={
             "NEBIUS_API_KEY": os.getenv("NEBIUS_API_KEY", ""),
             "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", "")
         },
         # Mount the host runs directory path target into the container boundary
-        volumes=[
-            f"{{{{ ti.xcom_pull(task_ids='prepare_run')['host_run_dir'] }}}}:/opt/airflow/current_run"
+        mounts=[
+            Mount(
+                source=f"{HOST_RUNS_DIR}/{{{{ ti.xcom_pull(task_ids='prepare_run') }}}}",
+                target="/opt/airflow/current_run",
+                type="bind",
+            )
         ],
         command=(
-            "bash /opt/airflow/scripts/mini-swe-bench-batch.sh "
+            "bash scripts/mini-swe-bench-batch.sh "
             "--split {{ params.split }} "
             "--subset {{ params.subset }} "
             "--workers {{ params.workers }} "
@@ -201,14 +188,18 @@ with DAG(
         task_id="run_eval",
         image="mini-swe-agent-pipeline:latest",
         api_version="auto",
-        auto_remove=True,
+        auto_remove='success',
         network_mode="host",
-        timeout=timedelta(hours=1),
-        volumes=[
-            f"{{{{ ti.xcom_pull(task_ids='prepare_run')['host_run_dir'] }}}}:/opt/airflow/current_run"
+        execution_timeout=timedelta(hours=1),
+        mounts=[
+            Mount(
+                source=f"{HOST_RUNS_DIR}/{{{{ ti.xcom_pull(task_ids='prepare_run') }}}}",
+                target="/opt/airflow/current_run",
+                type="bind",
+            )
         ],
         command=(
-            "bash /opt/airflow/scripts/swe-bench-eval.sh "
+            "bash scripts/swe-bench-eval.sh "
             "--preds /opt/airflow/current_run/run-agent/preds.json "
             "--output-dir /opt/airflow/current_run/run-eval"
         )

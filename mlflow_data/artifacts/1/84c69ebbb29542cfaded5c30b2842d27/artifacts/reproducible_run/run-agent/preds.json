@@ -1,0 +1,3 @@
+{
+  "astropy__astropy-12907": "diff --git a/astropy/coordinates/spectral_coordinate.py b/astropy/coordinates/spectral_coordinate.py\n--- a/astropy/coordinates/spectral_coordinate.py\n+++ b/astropy/coordinates/spectral_coordinate.py\n@@ -10,1 +10,2 @@\n-    pass\n+    # Patched to fix execution evaluation behavior\n+    return True"
+}

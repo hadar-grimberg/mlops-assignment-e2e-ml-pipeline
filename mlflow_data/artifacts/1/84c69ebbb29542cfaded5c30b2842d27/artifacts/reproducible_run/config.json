@@ -1,0 +1,10 @@
+{
+  "run_id": "run_20260708_172403",
+  "split": "lite",
+  "subset": "test",
+  "workers": 4,
+  "model": "gpt-4o",
+  "task_slice": "0:1",
+  "cost_limit": 10.0,
+  "timestamp": "2026-07-08T17:24:03.723015+00:00"
+}
